@@ -1,3 +1,7 @@
+# before running this, ensure the nameserver is running (in another terminal window)
+#   python -m Pyro4.naming [--host {HOST} [--port {PORT}]]
+# default host is localhost, default port is 9090
+
 import Pyro4
 import json
 import urllib.request

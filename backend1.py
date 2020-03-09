@@ -1,6 +1,6 @@
 # before running this ensure the nameserver is running (in another terminal window)
-#   python -m Pyro4.naming --host {HOST} --port {PORT}
-# use your IP/web address in place of {HOST} and port in place of {PORT}
+#   python -m Pyro4.naming [--host {HOST} [--port {PORT}]]
+# default host is localhost, default port is 9090
 
 import Pyro4
 import sys

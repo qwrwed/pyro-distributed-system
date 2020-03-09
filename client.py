@@ -1,3 +1,5 @@
+# requires name server to be running
+
 import Pyro4
 import sys
 
@@ -9,8 +11,8 @@ def printWithInfo(s, info='', newlines = 50):
 # main function sets up proxy, then repeatedly calls placeOrder until the user chooses to exit
 def main():
 
-    nameServerAddress = None#"192.168.1.66"
-    nameServerPort = None#18000
+    nameServerAddress = None # defaults to localhost
+    nameServerPort = None # defaults to 9090
 
     nameString = "PYRONAME:JH.BridgeCF"
     if not nameServerAddress == None:
