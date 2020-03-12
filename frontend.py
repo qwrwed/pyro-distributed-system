@@ -50,16 +50,16 @@ class JHBridgeCF(object):
         self.__completedRequests = []
 
     def request(self, requestId, requestType, requestContent=None):
-        print(self.__completedRequests)
+        #print(self.__completedRequests)
         # 0: request completed successfully
         # 1: request failed due to client error
         # 2: request failed due to server error (or result of server error)
 
         if requestId in self.__completedRequests:
-            return {'code': 2, 'content': 'Request already completed'}
+            return {'code': 2, 'content': ''}#'Request already completed'}
         
         print(f"Request recieved. Type: {requestType}, content: {requestContent}")
-        validClientRequests = ['getIntroMessage', 'getMenu', 'getMaxOrders', 'postOrder', 'validatePostCode']
+        validClientRequests = ['getIntroMessage', 'getMenu', 'getMaxQuantity', 'postOrder', 'validatePostCode', 'getOrders']
         if requestType == 'validatePostCode':
             
             postcode = ' '.join(requestContent.upper().split())
@@ -105,7 +105,7 @@ class JHBridgeCF(object):
                 except AttributeError as e:
                     setBridge()
             self.__completedRequests.append(requestId)
-            return {'code': 2, 'content': 'ERROR: Failed to connect to server'}
+            return {'code': 2, 'content': 'Error'}
                 
         else:
             self.__completedRequests.append(requestId)

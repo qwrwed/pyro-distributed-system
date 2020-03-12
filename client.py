@@ -26,7 +26,8 @@ def main():
         while willPlaceOrder == True:
             willPlaceOrder = placeOrder(JHBridgeCF)
     except Pyro4.errors.NamingError as e:
-        print("ERROR: Failed to connect to server")
+        #print("ERROR: Failed to connect to server")
+        print(f"Service unavailable; please try again later.")
         sys.exit(1)
 
 # generic function for making requests of all types to the frontend, which will pass it to a DS component and return the reponse in a standardised format
@@ -45,16 +46,18 @@ def makeRequest(JHBridgeCF, requestType, requestContent = None):
             if attempt < maxAttempts-1: 
                 continue
             else:
-                print(f"Failed to connect to server after {maxAttempts} attempts. Service unavailable; please try again later.")
+                #print(f"Failed to connect to server after {maxAttempts} attempts. Service unavailable; please try again later.")
+                print(f"Service unavailable; please try again later.")
                 sys.exit(1)
 
-def stringifyOrder(order, menu):
+def stringifyOrder(order):
+    print(order)
     orderStringList = []
     if 'id' in order:
         orderStringList.append(f"Order number: {order['id']}")
     orderStringList.append(f"Items ordered:")
     if len(order['content']) > 0:
-        orderStringList.append(', '.join([f"{menu[orderNumber]} x{order['content'][orderNumber]}" for orderNumber in order['content']]))
+        orderStringList.append(', '.join([f"{itemName} x{order['content'][itemName]}" for itemName in order['content']]))
     else:
         orderStringList.append("No items added to menu")
     orderStringList.append(f"Delivery address:")
@@ -77,14 +80,20 @@ def placeOrder(JHBridgeCF):
         "2: Enter delivery address",
         "3: Display order",
         "4: Submit order",
+        "5: Retrieve previous orders",
         "0: Exit"
     ])
 
-    introMessage = makeRequest(JHBridgeCF, 'getIntroMessage')['content']
+    
     
     mainMenuInfo = ''
     menu = []
     while True:
+        introMessageResponse = makeRequest(JHBridgeCF, 'getIntroMessage')
+        if introMessageResponse['code'] != 0:
+            print(f"Service unavailable; please try again later.")
+            sys.exit(1)
+        introMessage = introMessageResponse['content']
         printWithInfo(f"{introMessage}\n{mainMenu}", mainMenuInfo)
         userChoice = input("Select an option: ")
         info=''
@@ -92,7 +101,7 @@ def placeOrder(JHBridgeCF):
             while True:
                 modified = False
                 menu = makeRequest(JHBridgeCF, 'getMenu')['content']
-                maxOrders = makeRequest(JHBridgeCF, 'getMaxOrders')['content']
+                maxQuantity = makeRequest(JHBridgeCF, 'getMaxQuantity')['content']
                 menuString = '\n'.join([f"{index+1}: {menu[index]}" for index in range(len(menu))])
                 printWithInfo(menuString, info)
                 orderNumber = input("Enter item's number (leave blank to exit):  ")
@@ -117,8 +126,8 @@ def placeOrder(JHBridgeCF):
                         info = "Invalid input: Not a number"
                         continue
                     orderQuantity = int(orderQuantity)
-                    if orderQuantity > maxOrders:
-                        info = f"Quantity too high, maximum is {maxOrders}" 
+                    if orderQuantity > maxQuantity:
+                        info = f"Quantity too high, maximum is {maxQuantity}" 
                         continue
                     elif orderQuantity == 0:
                         del order['content'][orderNumber]
@@ -130,7 +139,7 @@ def placeOrder(JHBridgeCF):
                 if orderQuantity > 0:
                     info = f"Added {menu[orderNumber]} (x{orderQuantity}) to order"
                     printWithInfo(menuString, info)
-                    order['content'][orderNumber] = orderQuantity
+                    order['content'][menu[orderNumber]] = orderQuantity
                 if modified:
                     mainMenuInfo = 'Order updated'
                 else:
@@ -151,21 +160,23 @@ def placeOrder(JHBridgeCF):
                     info = response['content']
                     continue
             if postcodeValid:
-                building = input("Enter building name or number: ")
+                building = ''
+                while building == '':
+                    building = input("Enter building name or number: ").strip()
                 order['address']['postcode'] = postcode
                 order['address']['building'] = building
                 mainMenuInfo = f"Delivery address set to {building} {postcode}"
             else:
                 mainMenuInfo = ''
         elif userChoice == '3': #display order
-            printWithInfo(stringifyOrder(order, menu), "Press Enter to continue")
+            printWithInfo(stringifyOrder(order), "Press Enter to continue")
             input()
         elif userChoice == '4': # Submit order
             response = makeRequest(JHBridgeCF, 'postOrder', order)
             if response['code'] == 0:
                 print("Your order has been confirmed")
                 orderResponse = response['content']
-                print(stringifyOrder(orderResponse, menu))
+                print(stringifyOrder(orderResponse))
                 print(f"Please retain this information as proof of purchase.")
                 while True:
                     orderAgain = input(f"Would you like to place another order? (y/N): ")
@@ -177,6 +188,31 @@ def placeOrder(JHBridgeCF):
                         print('Unrecognised')
             elif response['code'] == 1:
                 mainMenuInfo = f"Invalid order: {response['content']}"
+        elif userChoice == '5': # Retrieve orders
+            response = makeRequest(JHBridgeCF, 'getOrders')
+            if response['code'] == 0:
+                print("ORDERS")
+                ordersString = '\n--\n'.join([stringifyOrder(order) for order in response['content']])
+                if len(ordersString) == 0:
+                    ordersString = "No orders to show"
+
+
+                printWithInfo(ordersString, info)
+                orderChosen = False
+                while orderChosen == False:
+                    chosenOrderId = input("Type an order number to set it as your current order (leave blank to cancel): ")
+                    if chosenOrderId.strip == '':
+                        break
+                    for retrievedOrder in response['content']:
+                        if chosenOrderId.isdigit() and retrievedOrder['id'] == int(chosenOrderId):
+                            order = {
+                                'content': retrievedOrder['content'],
+                                'address': retrievedOrder['address']
+                            }
+                            orderChosen = True
+                            break
+
+
 
         elif userChoice == '0':
             return False

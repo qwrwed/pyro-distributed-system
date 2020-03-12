@@ -143,13 +143,14 @@ class JHBridgeFB(object):
                 "Veggie Burger",
                 "Turkey Burger"
             ]
-        elif requestType == 'getMaxOrders':
+        elif requestType == 'getMaxQuantity':
             responseContent = 10
         elif requestType == 'postOrder':
             order = requestContent
             orderValid, invalidError = validateOrder(order)
             if orderValid:
-                id = JHOrderContainer.add(order)
+                order['client'] = Pyro4.current_context.client_sock_addr
+                JHOrderContainer.add(order)
                 
                 responseCode = 0
                 responseContent = order
@@ -164,9 +165,15 @@ class JHBridgeFB(object):
                         print(f"Could not send information to server {index}")
                     except Pyro4.errors.NamingError as e:
                         print(f"Could not send information to server {index}")
+                print()
             else:
                 responseCode = 1
                 responseContent = invalidError
+        elif requestType == 'getOrders':
+            print("HELP ME")
+            responseContent = [order for order in (JHOrderContainer.orders) if order['client'][0] == Pyro4.current_context.client_sock_addr[0]] # match IP address
+            responseCode = 0
+            print(responseContent)
         else:
             responseContent = 'Request unrecognised'
             responseCode = 1
