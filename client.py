@@ -1,4 +1,4 @@
-# requires name server to be running
+# requires name server to be running, and its address and port known
 
 import Pyro4
 import sys
@@ -12,12 +12,12 @@ def printWithInfo(s, info='', newlines = 50):
 def main():
 
     nameServerAddress = None # defaults to localhost
-    nameServerPort = None # defaults to 9090
+    nameServerPort = 0 # defaults to 9090
 
     nameString = "PYRONAME:JH.BridgeCF"
     if not nameServerAddress == None:
         nameString += f"@{nameServerAddress}"
-        if not nameServerPort == None:
+        if not nameServerPort == 0:
             nameString += f":{nameServerPort}"
     JHBridgeCF = Pyro4.Proxy(nameString)
 
@@ -51,7 +51,6 @@ def makeRequest(JHBridgeCF, requestType, requestContent = None):
                 sys.exit(1)
 
 def stringifyOrder(order):
-    print(order)
     orderStringList = []
     if 'id' in order:
         orderStringList.append(f"Order number: {order['id']}")
@@ -172,9 +171,10 @@ def placeOrder(JHBridgeCF):
             printWithInfo(stringifyOrder(order), "Press Enter to continue")
             input()
         elif userChoice == '4': # Submit order
+            print('Placing order...')
             response = makeRequest(JHBridgeCF, 'postOrder', order)
             if response['code'] == 0:
-                print("Your order has been confirmed")
+                print("Your order has been confirmed!")
                 orderResponse = response['content']
                 print(stringifyOrder(orderResponse))
                 print(f"Please retain this information as proof of purchase.")
@@ -191,17 +191,19 @@ def placeOrder(JHBridgeCF):
         elif userChoice == '5': # Retrieve orders
             response = makeRequest(JHBridgeCF, 'getOrders')
             if response['code'] == 0:
-                print("ORDERS")
-                ordersString = '\n--\n'.join([stringifyOrder(order) for order in response['content']])
-                if len(ordersString) == 0:
-                    ordersString = "No orders to show"
+                ordersString = "ORDERS:\n\n"
+                ordersString += '\n\n'.join([stringifyOrder(order) for order in response['content']])
+                if len(response['content']) == 0:
+                    ordersString += "No orders to show"
 
 
-                printWithInfo(ordersString, info)
+                
                 orderChosen = False
                 while orderChosen == False:
+                    printWithInfo(ordersString, info)
                     chosenOrderId = input("Type an order number to set it as your current order (leave blank to cancel): ")
-                    if chosenOrderId.strip == '':
+                    if chosenOrderId.strip() == '':
+                        mainMenuInfo = ''
                         break
                     for retrievedOrder in response['content']:
                         if chosenOrderId.isdigit() and retrievedOrder['id'] == int(chosenOrderId):
@@ -210,7 +212,9 @@ def placeOrder(JHBridgeCF):
                                 'address': retrievedOrder['address']
                             }
                             orderChosen = True
+                            mainMenuInfo = 'Order loaded'
                             break
+                    info = 'Order not found'
 
 
 

@@ -1,4 +1,5 @@
-# before running this, ensure the nameserver is running (in another terminal window)
+# CREATED USING PYTHON 3.7.4 - MAY NOT WORK ON OLDER VERSIONS
+# before running this program, ensure the nameserver is running on the same machine as the backend
 #   python -m Pyro4.naming [--host {HOST} [--port {PORT}]]
 # default host is localhost, default port is 9090
 
@@ -10,23 +11,26 @@ import re
 numberOfServers = 3
 JHBridgeFB = None
 
-# LOCATION TRANSPARENCY: Connections to all backend servers are performed here on the frontend, not the client
+# LOCATION TRANSPARENCY: Connections to all backend servers are performed here on the frontend, not the client.
+# The client only actually knows the location of the nameserver
 # REPLICATION TRANSPARENCY: The setBridge function causes the frontend to decide which replicated backend should act as the primary backend to forward client messages to
 # it is assumed that all programs are connected to the same nameserver; for different nameservers, modify nameServerAddresses and nameServerPorts
-def setBridge():
 
-    nameServerAddresses = [None]*numberOfServers
-    nameServerPorts = [None]*numberOfServers
+selfAddress = None# defaults to localhost
+selfPort = 0 # defaults to 9090
+nameServerAddress = None
+nameServerPort = 0
+def setBridge():
 
     global JHBridgeFB
     JHBridgeFB = None
     for serverNumber in range(1, numberOfServers+1):
         try:
             nameString = f"PYRONAME:JH.BridgeFB{serverNumber}"
-            if not nameServerAddresses[serverNumber-1] == None:
-                nameString += f"@{nameServerAddresses[serverNumber-1]}"
-                if not nameServerPorts[serverNumber-1] == None:
-                    nameString += f":{nameServerPorts[serverNumber-1]}"
+            if not nameServerAddress == None:
+                nameString += f"@{nameServerAddress}"
+                if not nameServerPort == 0:
+                    nameString += f":{nameServerPort}"
             potentialJHBridgeFB = Pyro4.Proxy(nameString)
             response = potentialJHBridgeFB.ping()
             if response == True:
@@ -38,6 +42,7 @@ def setBridge():
             print(f"Failed to connect to server {serverNumber}")
         except Pyro4.errors.NamingError:
             print(f"Failed to connect to server {serverNumber}")
+        
     print("Could not connect to any servers")
     return
 
@@ -50,11 +55,10 @@ class JHBridgeCF(object):
         self.__completedRequests = []
 
     def request(self, requestId, requestType, requestContent=None):
-        #print(self.__completedRequests)
+
         # 0: request completed successfully
         # 1: request failed due to client error
         # 2: request failed due to server error (or result of server error)
-
         if requestId in self.__completedRequests:
             return {'code': 2, 'content': ''}#'Request already completed'}
         
@@ -93,9 +97,10 @@ class JHBridgeCF(object):
                 
 
         elif requestType in validClientRequests:
-            for _ in range(1):
+            for _ in range(2):
                 try:
-                    response = JHBridgeFB.request(requestType, requestContent)
+                    client = Pyro4.current_context.client_sock_addr
+                    response = JHBridgeFB.request(client, requestType, requestContent)
                     print(f"Response recieved: {response}")
                     self.__completedRequests.append(requestId)
                     return response
@@ -111,10 +116,12 @@ class JHBridgeCF(object):
             self.__completedRequests.append(requestId)
             return {'code': 1, 'content': 'Invalid request type'}
 
-
-daemon = Pyro4.Daemon()
-ns = Pyro4.locateNS()
-uri = daemon.register(JHBridgeCF)
-ns.register("JH.BridgeCF", uri)
 print("Ready for client connection...")
-daemon.requestLoop()
+Pyro4.Daemon.serveSimple(
+    {
+        JHBridgeCF: f"JH.BridgeCF",
+    },
+    host=selfAddress,
+    port=selfPort,
+    verbose=False,
+)

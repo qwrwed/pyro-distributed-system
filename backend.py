@@ -1,10 +1,22 @@
-# before running this ensure the nameserver is running (in another terminal window)
+# CREATED USING PYTHON 3.7.4 - MAY NOT WORK ON OLDER VERSIONS
+# before running this program, ensure the nameserver is running (in another terminal window)
 #   python -m Pyro4.naming [--host {HOST} [--port {PORT}]]
 # default host is localhost, default port is 9090
+
+# Passive Replication:
+# To run multiple backends (system supports up to 3) there are two options:
+#  1. Duplicate this file twice and rename such that there are 3 identical files, then run them all
+#     "python backend1.py", "python backend2.py", "python backend3.py"
+#  2. Have just one copy of this file and run multiple times with the server index as a command-line argument:
+#     "python ./backend.py 1" ,"python ./backend.py 2", "python ./backend.py 3"
+# Note: the command-line arguent takes precedence over the file name.
 
 import Pyro4
 import sys
 import re
+
+selfAddress = None# defaults to localhost
+selfPort = 0 # defaults to 9090
 
 @Pyro4.expose
 class OrderContainer(object):
@@ -49,11 +61,7 @@ class OrderContainer(object):
         self.__orders = new
 
 numberOfServers = 3
-# Passive replication
-# Multiple servers can be run by specifying the server index, by either:
-#   - Running this file via command-line using 'python backend.py {x}' where {x} is the server index, assuming the file is called 'backend.py'
-#   - Duplicating this file with the name "backend{x}.py", where {x} is the server index, then running it
-# Note: the command-line arguent takes precedence over the file name.
+
 if len(sys.argv) == 1:
     fileName = sys.argv[0]
     pattern = re.compile(r'^backend([0-9]+).py$')
@@ -95,8 +103,6 @@ for serverNumber in range(1, numberOfServers+1):
 
 
 def validateOrder(order):
-
-    print(order)
     try:
         if len(order['content']) == 0:
             return False, f"No items ordered"
@@ -107,23 +113,12 @@ def validateOrder(order):
         return False, f"Order is missing {e}"
     return True, None
 
-    """
-    try:
-        postcodeValid = True
-        if len(order['content']) == 0:
-            return False, 'Empty order'
-        if not postcodeValid:
-            return False, 'Invalid postcode'
-    except:
-        return False, 'Error'
-    """
-
 @Pyro4.expose
 class JHBridgeFB(object):
     def ping(self):
         return True
 
-    def request(self, requestType, requestContent=None):
+    def request(self, client, requestType, requestContent=None):
         # 0: request completed successfully
         # 1: request failed due to client error
         # 2: request failed due to server error
@@ -149,7 +144,7 @@ class JHBridgeFB(object):
             order = requestContent
             orderValid, invalidError = validateOrder(order)
             if orderValid:
-                order['client'] = Pyro4.current_context.client_sock_addr
+                order['client'] = client
                 JHOrderContainer.add(order)
                 
                 responseCode = 0
@@ -170,10 +165,8 @@ class JHBridgeFB(object):
                 responseCode = 1
                 responseContent = invalidError
         elif requestType == 'getOrders':
-            print("HELP ME")
-            responseContent = [order for order in (JHOrderContainer.orders) if order['client'][0] == Pyro4.current_context.client_sock_addr[0]] # match IP address
+            responseContent = [order for order in (JHOrderContainer.orders) if order['client'][0] == client[0]] # match IP address
             responseCode = 0
-            print(responseContent)
         else:
             responseContent = 'Request unrecognised'
             responseCode = 1
@@ -190,5 +183,7 @@ Pyro4.Daemon.serveSimple(
         JHOrderContainer: f"JHOrderContainer{thisServer}",
         JHBridgeFB: f"JH.BridgeFB{thisServer}"
     },
-    verbose=False
+    host=selfAddress,
+    port=selfPort,
+    verbose=False,
 )
