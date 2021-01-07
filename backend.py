@@ -4,12 +4,14 @@
 # default host is localhost, default port is 9090
 
 # Passive Replication:
-# To run multiple backends (system supports up to 3) there are two options:
-#  1. Duplicate this file twice and rename such that there are 3 identical files, then run them all
+# To run multiple backends (system supports up to <numberOfServers>; 3 will be used as example) there are two options:
+#  1. Duplicate this file twice and rename such that there are 3 identical files, then run them all:
 #     "python backend1.py", "python backend2.py", "python backend3.py"
 #  2. Have just one copy of this file and run multiple times with the server index as a command-line argument:
 #     "python ./backend.py 1" ,"python ./backend.py 2", "python ./backend.py 3"
-# Note: the command-line arguent takes precedence over the file name.
+# Note: the command-line argument takes precedence over the file name.
+
+numberOfServers = 3
 
 import Pyro4
 import sys
@@ -60,8 +62,6 @@ class OrderContainer(object):
     def orders(self, new):
         self.__orders = new
 
-numberOfServers = 3
-
 if len(sys.argv) == 1:
     fileName = sys.argv[0]
     pattern = re.compile(r'^backend([0-9]+).py$')
@@ -93,7 +93,7 @@ for serverNumber in range(1, numberOfServers+1):
     # set up OrderContainer proxies for all other servers
     if serverNumber != thisServer:
         OrderContainers[serverNumber] = Pyro4.Proxy(f"PYRONAME:JHOrderContainer{serverNumber}")
-        # FAILURE TRANSPARENCY: If the other server(s) are already active, the OrderContainer with the most elements...
+        # FAILURE TRANSPARENCY: If the other server(s) are already active, the OrderContainer with the most elements /
         #  from those servers will be copied into this server's OrderContainer, allowing this server to be brought up to date after a failure and recovery
         try:
             if len(OrderContainers[serverNumber].orders) > len(JHOrderContainer.orders):

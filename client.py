@@ -1,4 +1,7 @@
-# requires name server to be running, and its address and port known
+# CREATED USING PYTHON 3.7.4 - MAY NOT WORK ON OLDER VERSIONS
+# before running this program, ensure the nameserver is running on the same machine as the backend
+#   python -m Pyro4.naming [--host {HOST} [--port {PORT}]]
+# default host is localhost, default port is 9090
 
 import Pyro4
 import sys
@@ -7,28 +10,6 @@ nextRequestId = 0
 # function to display (usually static) string with (usually dynamic) info underneath, after 'clearing' terminal with newlines
 def printWithInfo(s, info='', newlines = 50):
     print('\n'.join(['\n'*newlines, s, info]))
-
-# main function sets up proxy, then repeatedly calls placeOrder until the user chooses to exit
-def main():
-
-    nameServerAddress = None # defaults to localhost
-    nameServerPort = 0 # defaults to 9090
-
-    nameString = "PYRONAME:JH.BridgeCF"
-    if not nameServerAddress == None:
-        nameString += f"@{nameServerAddress}"
-        if not nameServerPort == 0:
-            nameString += f":{nameServerPort}"
-    JHBridgeCF = Pyro4.Proxy(nameString)
-
-    willPlaceOrder = True
-    try:
-        while willPlaceOrder == True:
-            willPlaceOrder = placeOrder(JHBridgeCF)
-    except Pyro4.errors.NamingError as e:
-        #print("ERROR: Failed to connect to server")
-        print(f"Service unavailable; please try again later.")
-        sys.exit(1)
 
 # generic function for making requests of all types to the frontend, which will pass it to a DS component and return the reponse in a standardised format
 def makeRequest(JHBridgeCF, requestType, requestContent = None):
@@ -82,8 +63,6 @@ def placeOrder(JHBridgeCF):
         "5: Retrieve previous orders",
         "0: Exit"
     ])
-
-    
     
     mainMenuInfo = ''
     menu = []
@@ -223,7 +202,24 @@ def placeOrder(JHBridgeCF):
         else:
             mainMenuInfo = "Unrecognised input"
 
+# main function sets up proxy, then repeatedly calls placeOrder until the user chooses to exit
 if __name__ == '__main__':
-    main()
 
+    nameServerAddress = None # defaults to localhost
+    nameServerPort = 0 # defaults to 9090
 
+    nameString = "PYRONAME:JH.BridgeCF"
+    if not nameServerAddress == None:
+        nameString += f"@{nameServerAddress}"
+        if not nameServerPort == 0:
+            nameString += f":{nameServerPort}"
+    JHBridgeCF = Pyro4.Proxy(nameString)
+
+    willPlaceOrder = True
+    try:
+        while willPlaceOrder == True:
+            willPlaceOrder = placeOrder(JHBridgeCF)
+    except Pyro4.errors.NamingError as e:
+        #print("ERROR: Failed to connect to server")
+        print(f"Service unavailable; please try again later.")
+        sys.exit(1)

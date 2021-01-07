@@ -12,9 +12,9 @@ numberOfServers = 3
 JHBridgeFB = None
 
 # LOCATION TRANSPARENCY: Connections to all backend servers are performed here on the frontend, not the client.
-# The client only actually knows the location of the nameserver
+#   The client only actually knows the location of the nameserver
 # REPLICATION TRANSPARENCY: The setBridge function causes the frontend to decide which replicated backend should act as the primary backend to forward client messages to
-# it is assumed that all programs are connected to the same nameserver; for different nameservers, modify nameServerAddresses and nameServerPorts
+#   it is assumed that all programs are connected to the same nameserver; for different nameservers, modify nameServerAddresses and nameServerPorts
 
 selfAddress = None# defaults to localhost
 selfPort = 0 # defaults to 9090
@@ -80,6 +80,7 @@ class JHBridgeCF(object):
                 js = json.loads(str_response)
                 result = js['result']
             except urllib.error.URLError:
+                # FAILURE TRANSPARENCY: On failure to connect, switch to another API and try again
                 try:
                     res = urllib.request.urlopen(f"http://api.getthedata.com/postcode/{postcodeNoSpaces}")
                     str_response = res.read().decode('utf-8')
