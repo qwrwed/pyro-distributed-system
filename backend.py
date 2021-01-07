@@ -123,7 +123,6 @@ class JHBridgeFB(object):
         # 1: request failed due to client error
         # 2: request failed due to server error
         
-        #do stuff
         print(f"Request recieved. Type: {requestType}, content: {requestContent}")
         responseCode = 0
         if requestType == 'getIntroMessage':
